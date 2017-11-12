@@ -6,8 +6,8 @@
 #       Copyright (c) 2014 EnTr0p1sT entr0p1st@worldwidewyrd dot net,         #
 # <-- forked by m0ellemeister, ported to Python 3 + rewritten some code   --> #
 #                     2017 Sven Möller smoeller@nichthelfer dot de,           #
-#                          TODO: replace MD5 sum                              #
-#                          MD5 ID: 75cf1b154d75ea8a4dd4f91d82133f21)          #
+#                                                                             #
+#                          MD5 ID: 8c4e8a09399f28004783ca26a52f6a48)          #
 #                                                                             #
 ###############################################################################
 
@@ -65,7 +65,7 @@
 __author__ = 'Sven Möller'
 
 from binascii import hexlify
-from subprocess import Popen
+from subprocess import Popen, DEVNULL
 from os.path import expanduser
 import argparse
 import asyncio
@@ -73,12 +73,6 @@ import functools
 import pyudev
 import signal
 import yaml
-
-#defining some constants
-EVENT_LENGTH = 192 #magic number from playing with contents of hiddev0
-# DEVICE_ABBR = "Madcatz Mad Catz V.7 Keyboard" #key word relating to keyboard to get from dmesg
-BACK_STEPS = 7 #the number of characters preceeding the char of interest
-SIGNATURE = b'01' #the unique characters identifying a keypress
 
 
 def loadconfig(configfile):
@@ -98,6 +92,7 @@ def loadconfig(configfile):
             print('Error Loading Config File: {0}'.format(e))
             return "LoadError"
 
+
 def get_keyboard_addr(model="Mad_Catz_V.7_Keyboard", type="usb"):
     """
     Get the hiddev device path by searching the udev db.
@@ -116,28 +111,36 @@ def get_keyboard_addr(model="Mad_Catz_V.7_Keyboard", type="usb"):
             print(device['DEVNAME'])
             return device['DEVNAME']
 
-def lookup_keypress(keys, event):
+
+def lookup_keypress(keys, event, back_steps=7, signature=b'01'):
     """
     gets the index of the signature, and backsteps to get the number
     :param event: by pressed key
     :return:
     """
-    index = event.find(SIGNATURE)
-    hex = '0x' + str(event[index-BACK_STEPS])
+    index = event.find(signature)
+    hex = '0x' + str(event[index-back_steps])
     try:
         return keys['cyborg']['keycodes'][int(hex, 0)][0]['command'].split()
     except KeyError:
         pass
 
 
-def read_keypress(hiddev, ckeys):
-    event = hexlify(hiddev.read(EVENT_LENGTH))
+def read_keypress(hiddev, ckeys, event_length=192):
+    event = hexlify(hiddev.read(event_length))
+    # make string out of list from config file
+    # to be able to append a '&' at the end of command line
+    command = ''
+    for arg in lookup_keypress(ckeys, event):
+        command = command + arg + ' '
     try:
-        Popen(lookup_keypress(ckeys, event))
+        Popen(command + ' &', shell=True, stdout=DEVNULL, stderr=DEVNULL, close_fds=True)
     except FileNotFoundError as e:
         print("ERROR: {0}".format(e.strerror))
     except PermissionError as e:
         print("ERROR: can't execute {0}: {1}".format(e.filename, e.strerror))
+    except TypeError:
+        pass
     asyncio.sleep(1)
 
 
