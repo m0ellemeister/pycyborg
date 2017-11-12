@@ -1,0 +1,26 @@
+cyborg:
+  keycodes:
+    73:
+      - command: /usr/bin/xmessage "C1"
+    80:
+      - command: /usr/bin/xmessage "C2"
+    81:
+      - command: /usr/bin/xmessage "C3"
+    82:
+      - command: /usr/bin/xmessage "C4"
+    83:
+      - command: /usr/bin/xmessage "C5"
+    84:
+      - command: /usr/bin/xmessage "C6"
+    85:
+      - command: /usr/bin/xmessage "C7"
+    86:
+      - command: /usr/bin/xmessage "C8"
+    87:
+      - command: /usr/bin/xmessage "C9"
+    151:
+      - command: /usr/bin/xmessage "C10"
+    152:
+      - command: /usr/bin/xmessage "C11"
+    153:
+      - command: /usr/bin/audacious
