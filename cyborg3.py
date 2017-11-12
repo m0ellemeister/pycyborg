@@ -68,7 +68,10 @@ from binascii import hexlify
 from subprocess import Popen
 from os.path import expanduser
 import argparse
+import asyncio
+import functools
 import pyudev
+import signal
 import yaml
 
 #defining some constants
@@ -121,7 +124,27 @@ def lookup_keypress(keys, event):
     """
     index = event.find(SIGNATURE)
     hex = '0x' + str(event[index-BACK_STEPS])
-    return keys['cyborg']['keycodes'][int(hex, 0)][0]['command'].split()
+    try:
+        return keys['cyborg']['keycodes'][int(hex, 0)][0]['command'].split()
+    except KeyError:
+        pass
+
+
+def read_keypress(hiddev, ckeys):
+    event = hexlify(hiddev.read(EVENT_LENGTH))
+    try:
+        Popen(lookup_keypress(ckeys, event))
+    except FileNotFoundError as e:
+        print("ERROR: {0}".format(e.strerror))
+    except PermissionError as e:
+        print("ERROR: can't execute {0}: {1}".format(e.filename, e.strerror))
+    asyncio.sleep(1)
+
+
+def ask_exit(loop, signame):
+    print("got signal {0}: exit".format(signame))
+    loop.stop()
+
 
 def main():
     # TODO: this should be covered in a way like a daemon works
@@ -130,22 +153,18 @@ def main():
                         default='~/.config/pycyborg/cyborg3.yml', metavar='<Config File>',
                         help='Path to Config File. Default: ~/.config/pycyborg/cyborg3.yml')
     args = parser.parse_args()
-    # Read contents of file, then run infinite loop
     ckeys = loadconfig(args.conffile)
-    with open(get_keyboard_addr(), 'rb') as stream:
-        while True:  # shameless infinite loop!
-            event = hexlify(stream.read(EVENT_LENGTH))
-            try:
-                Popen(lookup_keypress(ckeys, event))
-            except FileNotFoundError as e:
-                print("ERROR: {0}".format(e.strerror))
-            except PermissionError as e:
-                print("ERROR: can't execute {0}: {1}".format(e.filename, e.strerror))
+    loop = asyncio.get_event_loop()
+    for signame in ('SIGINT', 'SIGTERM'):
+        loop.add_signal_handler(getattr(signal, signame),
+                                functools.partial(ask_exit, loop=loop, signame=signame))
+    try:
+        hiddev = open(get_keyboard_addr(), 'rb')
+        loop.add_reader(hiddev, functools.partial(read_keypress, hiddev=hiddev, ckeys=ckeys))
+        loop.run_forever()
+    finally:
+        hiddev.close()
+        loop.close()
 
 if __name__ == '__main__':
-    try:
-        main()
-    except KeyboardInterrupt:
-        print("Canceled by key stroke.")
-        exit(1)
-
+    main()
