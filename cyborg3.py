@@ -1,30 +1,74 @@
 #!/usr/bin/env python3
-
+# -*- coding: utf-8 -*-
 
 ###############################################################################
 #                                                                             #
-#       Copyright (c) 2014 EnTr0p1sT (entr0p1st@worldwidewyrd dot net,        #
+#       Copyright (c) 2014 EnTr0p1sT entr0p1st@worldwidewyrd dot net,         #
+# <-- forked by m0ellemeister, ported to Python 3 + rewritten some code   --> #
+#                     2017 Sven Möller smoeller@nichthelfer dot de,           #
 #                          TODO: replace MD5 sum                              #
 #                          MD5 ID: 75cf1b154d75ea8a4dd4f91d82133f21)          #
 #                                                                             #
 ###############################################################################
 
-# TODO: Update this short documentation to reflect the Yaml config
-#Config file format is an initial line with anything you like, followed by:
-#
-#Cx=/path/to/command
-#
-#for as many commands as you want to define, where 'x' is the number of the
-#macro key, and without the hash at the beginning.
+#Config file is in Yaml Format:
 
-# <-- forked by m0ellemeister, ported to Python 3 + rewritten some code -->
+# Example cyborg3.yml:
+# =============================================================================
+# First Node "cyborg" stands for the Keyboard itself.
+# Second Node is for, as the name shows, for the corresponding key codes of the
+# "Cyborg" Keys C1 - C12
+# the number represents the Key Code received by the keyboard when a C Key is pressed.
+# - command: is, I guess self explaining, the command that should be executed when the
+# corresponding C-Key is pressed.
+# cyborg:
+#   keycodes:
+#     # Key C1
+#     73:
+#       - command: /usr/bin/xmessage "C1"
+#     # Key C2
+#     80:
+#       - command: /usr/bin/xmessage "C2"
+#     # Key C3
+#     81:
+#       - command: /usr/bin/xmessage "C3"
+#     # Key C4
+#     82:
+#       - command: /usr/bin/xmessage "C4"
+#     # Key C5
+#     83:
+#       - command: /usr/bin/xmessage "C5"
+#     # Key C6
+#     84:
+#       - command: /usr/bin/xmessage "C6"
+#     # Key C7
+#     85:
+#       - command: /usr/bin/xmessage "C7"
+#     # Key C8
+#     86:
+#       - command: /usr/bin/xmessage "C8"
+#     # Key C9
+#     87:
+#       - command: /usr/bin/xmessage "C9"
+#     # Key C10
+#     151:
+#       - command: /usr/bin/xmessage "C10"
+#     # Key C11
+#     152:
+#       - command: /usr/bin/xmessage "C11"
+#     # Key C12
+#     153:
+#       - command: /usr/bin/rhythmbox
+
+
+
+__author__ = 'Sven Möller'
 
 from binascii import hexlify
 from subprocess import Popen
 from os.path import expanduser
 import argparse
 import pyudev
-import sys
 import yaml
 
 #defining some constants
@@ -40,8 +84,7 @@ def loadconfig(configfile):
     :param configfile:
     :return: dict
     """
-    myconfigfile = {}
-    with open(configfile, 'r') as stream:
+    with open(expanduser(configfile), 'r') as stream:
         try:
             myconfigfile = yaml.safe_load(stream)
             return myconfigfile
@@ -77,52 +120,32 @@ def lookup_keypress(keys, event):
     :return:
     """
     index = event.find(SIGNATURE)
-    # print(type(event))
-    # print(str(event[index-BACK_STEPS]))
     hex = '0x' + str(event[index-BACK_STEPS])
-    # print(str(int(hex, 0)))
-    # print("MACRO: {0}".format(MACRO))
-    # print(type(MACRO))
-    # print(keys['cyborg'])
-    # print(keys['cyborg']['keycodes'])
-    # print("Taste")
-    # print(keys['cyborg']['keycodes'][int(hex, 0)][0]['command'].split())
     return keys['cyborg']['keycodes'][int(hex, 0)][0]['command'].split()
 
-# TODO: re-implement this by using argparse
-def parse_cmd(args):
-    """
-    If no args, read default file, else read given file, or fail
-    :param args: optional file name of config file
-    :return: macro => list of commands defined in configuration file
-    """
-    file_err = "Unable to read default config in "
-    usage_help = "Usage: python3 cyborg3.py [optional: config file path]"
-    if len(args) == 1:
-        try:
-            macro=read_macros(RC_FILE)
-        except:
-            print("{0}: {1}".format(file_err + RC_FILE))
-            sys.exit(1)
-    elif len(args) == 2:
-        try:
-            macro=read_macros(args[1])
-        except:
-            print("{0}: {1}".format(file_err + args[1]))
-            print(usage_help)
-            sys.exit(1)
-    else:
-        print(usage_help)
-        sys.exit(1)
-    return macro
+def main():
+    # TODO: this should be covered in a way like a daemon works
+    parser = argparse.ArgumentParser(description='This console App enables the Cyborg Keys on a Mad_Catz_V.7 Keyboard')
+    parser.add_argument('--config-file', dest='conffile', required=False, action='store',
+                        default='~/.config/pycyborg/cyborg3.yml', metavar='<Config File>',
+                        help='Path to Config File. Default: ~/.config/pycyborg/cyborg3.yml')
+    args = parser.parse_args()
+    # Read contents of file, then run infinite loop
+    ckeys = loadconfig(args.conffile)
+    with open(get_keyboard_addr(), 'rb') as stream:
+        while True:  # shameless infinite loop!
+            event = hexlify(stream.read(EVENT_LENGTH))
+            try:
+                Popen(lookup_keypress(ckeys, event))
+            except FileNotFoundError as e:
+                print("ERROR: {0}".format(e.strerror))
+            except PermissionError as e:
+                print("ERROR: can't execute {0}: {1}".format(e.filename, e.strerror))
 
-# TODO: put everything after this line into main()
-# TODO: this should be covered in a way like a daemon works
-#Read contents of file, then run infinite loop
-ckeys = loadconfig(expanduser('~') + '/.config/cyborg3.yml')
-with open(get_keyboard_addr(), 'rb') as stream:
- while True: #shameless infinite loop!
-  event=hexlify(stream.read(EVENT_LENGTH))
-  #event=b2a_hex(stream.read(EVENT_LENGTH))
-  Popen(lookup_keypress(ckeys, event))
+if __name__ == '__main__':
+    try:
+        main()
+    except KeyboardInterrupt:
+        print("Canceled by key stroke.")
+        exit(1)
 

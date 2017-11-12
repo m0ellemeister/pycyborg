@@ -1,26 +1,38 @@
 cyborg:
   keycodes:
+    # Key C1
     73:
       - command: /usr/bin/xmessage "C1"
+    # Key C2
     80:
       - command: /usr/bin/xmessage "C2"
+    # Key C3
     81:
       - command: /usr/bin/xmessage "C3"
+    # Key C4
     82:
       - command: /usr/bin/xmessage "C4"
+    # Key C5
     83:
       - command: /usr/bin/xmessage "C5"
+    # Key C6
     84:
       - command: /usr/bin/xmessage "C6"
+    # Key C7
     85:
       - command: /usr/bin/xmessage "C7"
+    # Key C8
     86:
       - command: /usr/bin/xmessage "C8"
+    # Key C9
     87:
       - command: /usr/bin/xmessage "C9"
+    # Key C10
     151:
       - command: /usr/bin/xmessage "C10"
+    # Key C11
     152:
       - command: /usr/bin/xmessage "C11"
+    # Key C12
     153:
-      - command: /usr/bin/audacious
+      - command: /usr/bin/rhythmbox
